@@ -151,17 +151,19 @@ autoscaling:
   # targetMemoryUtilizationPercentage: 80
 
 # Additional volumes on the output Deployment definition.
-volumes: []
-# - name: foo
-#   secret:
-#     secretName: mysecret
-#     optional: false
+volumes:
+  - name: tmp-config
+    emptyDir: {}
+  - name: config-history
+    persistentVolumeClaim:
+      claimName: vaultflow-api-config-history
 
 # Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-# - name: foo
-#   mountPath: "/etc/foo"
-#   readOnly: true
+volumeMounts:
+  - name: tmp-config
+    mountPath: /tmp/config
+    name: config-history
+    mountPath: /data/config-history
 
 nodeSelector: {}
 
@@ -176,4 +178,11 @@ affinity:
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: vaultflow-api
+
+persistence:
+  enabled: true
+  storageClass: standard
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /data/config-history
 
