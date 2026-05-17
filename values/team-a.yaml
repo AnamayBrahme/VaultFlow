@@ -1,0 +1,10 @@
+replicaCount: 2
+image:
+  repository: anamayb/vaultflow-api
+  pullPolicy: Always
+  tag: latest
+
+# Phase 5: Storage requests
+storage:
+  className: "standard"
+  size: "1Gi"

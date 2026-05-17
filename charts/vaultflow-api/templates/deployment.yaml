@@ -28,21 +28,34 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "vaultflow-api.serviceAccountName" . }}
-      {{- with .Values.podSecurityContext }}
+      
+      # Phase 8: Hardened Pod Security Context for PSA Restricted Namespace compliance
       securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Phase 4: Route exclusively to your application worker nodes (Pulled out of conditional block)
+      nodeSelector:
+        role: app
+
       containers:
         - name: {{ .Chart.Name }}
-          {{- with .Values.securityContext }}
+          # Phase 8: Container-level Security Context
           securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.service.port | default 5000 }}
               protocol: TCP
           {{- with .Values.livenessProbe }}
           livenessProbe:
@@ -56,18 +69,29 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.volumeMounts }}
+          
+          # Phase 5: Storage Volume Mounts
           volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-      {{- with .Values.volumes }}
+            - name: ephemeral-scratch
+              mountPath: /tmp
+            - name: config-history
+              mountPath: /data/config-history
+            {{- if .Values.volumeMounts }}
+            {{- toYaml .Values.volumeMounts | nindent 12 }}
+            {{- end }}
+
+      # Phase 5: Core Volumes (Pulled out of the conditional block so they always apply)
       volumes:
+        - name: ephemeral-scratch
+          emptyDir: {}
+        - name: config-history
+          persistentVolumeClaim:
+            # Must match the pvc.yaml name exactly: add "-config-history"
+            claimName: {{ include "vaultflow-api.fullname" $ }}-config-history
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
+
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}

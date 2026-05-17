@@ -9,7 +9,7 @@ replicaCount: 2
 image:
   repository: anamayb/vaultflow-api
   # This sets the pull policy for images.
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: latest
 
@@ -151,33 +151,17 @@ autoscaling:
   # targetMemoryUtilizationPercentage: 80
 
 # Additional volumes on the output Deployment definition.
-volumes:
-  - name: tmp-config
-    emptyDir: {}
-  - name: config-history
-    persistentVolumeClaim:
-      claimName: vaultflow-api-config-history
+volumes: []
+
 
 # Additional volumeMounts on the output Deployment definition.
-volumeMounts:
-  - name: tmp-config
-    mountPath: /tmp/config
-    name: config-history
-    mountPath: /data/config-history
+volumeMounts: []
 
 nodeSelector: {}
 
 tolerations: []
 
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          topologyKey: kubernetes.io/hostname
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: vaultflow-api
+affinity: []
 
 persistence:
   enabled: true
