@@ -1,0 +1,26 @@
+\replicaCount: 1
+
+image:
+  repository: postgres
+  tag: "16-alpine"
+  pullPolicy: IfNotPresent
+
+postgresql:
+  database: vaultflow
+  username: postgres
+  password: "password" 
+  pgdata: "/var/lib/postgresql/data/pgdata"
+
+nodeSelector:
+  role: db
+
+tolerations:
+  - key: "role"
+    operator: "Equal"
+    value: "db"
+    effect: "NoSchedule"
+
+storage:
+  className: "standard"
+  size: "1Gi"
+  mountPath: "/var/lib/postgresql/data"
