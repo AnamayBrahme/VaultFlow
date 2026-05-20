@@ -1,0 +1,20 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vaultflow-cluster-admin
+rules:
+  - apiGroups: ["*"]       # Can access every single API group suite
+    resources: ["*"]       # Can touch all resources (Pods, Deployments, Nodes, etc.)
+    verbs: ["*"]           # Has full permissions (Create, Get, Update, Delete)
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vaultflow-cluster-admin-binding
+subjects:
+  - kind: User
+    name: "admin-user@vaultflow.com" # Can be switched to a serviceaccount if a pipeline bot uses it
+roleRef:
+  kind: ClusterRole
+  name: vaultflow-cluster-admin
+  apiGroup: rbac.authorization.k8s.io

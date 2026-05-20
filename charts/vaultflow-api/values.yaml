@@ -170,3 +170,5 @@ persistence:
   size: 1Gi
   mountPath: /data/config-history
 
+storage:
+  size: 1Gi

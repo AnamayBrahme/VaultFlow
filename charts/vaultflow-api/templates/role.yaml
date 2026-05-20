@@ -2,9 +2,13 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ include "vaultflow-api.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "vaultflow-api.labels" . | nindent 4 }}
 rules:
-  - apiGroups: [""]
+  - apiGroups: [""] # Core API group
     resources: ["configmaps", "secrets"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"] # Limited read-only visibility for service discovery/health check syncs
