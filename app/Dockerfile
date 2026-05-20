@@ -20,7 +20,7 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 
 # Copy your core application script
-COPY app.py .
+COPY . .
 
 # Enforce secure ownership patterns over the application zone
 RUN chown -R vaultflow:vaultflow /app

@@ -9,3 +9,5 @@ venv/
 app/venv/
 .DS_Store
 charts/*/charts/
+app/venv/
+venv/

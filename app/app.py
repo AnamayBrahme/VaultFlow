@@ -1,6 +1,6 @@
 import os
 import time
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from prometheus_flask_exporter import PrometheusMetrics
 import psycopg2
 
@@ -120,6 +120,23 @@ def delete_secret(key):
         return jsonify({"message": "secret deleted", "key": key}), 200
     except Exception as e:
         return jsonify({"error": "Database delete error", "detail": str(e)}), 500
+    
+# ── Web UI Dashboard View ────────────────────────────────────────────────
+@app.route("/")
+def dashboard_ui():
+    """Serves the frontend operator interface from the templates directory."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, secret_key, secret_value, created_at FROM secrets ORDER BY id DESC;")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        rows = []
+        print(f"UI Fetch Error: {e}")
+
+    return render_template("index.html", rows=rows)
 
 # ── Run ───────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
