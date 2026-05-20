@@ -1,0 +1,22 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: vaultflow-pipeline
+build:
+  artifacts:
+    - image: vaultflow-api
+      context: ./app
+      docker:
+        dockerfile: Dockerfile
+  local:
+    push: false # Crucial for Docker Desktop: tells it not to try pushing to Docker Hub
+manifests:
+  helm:
+    releases:
+      - name: vaultflow-api-team-a
+        chartPath: ./charts/vaultflow-api
+        namespace: vaultflow-team-a
+        setValueTemplates:
+          image.repository: "{{.IMAGE_REPO}}"
+          image.tag: "{{.IMAGE_TAG}}"
+          image.pullPolicy: "IfNotPresent"

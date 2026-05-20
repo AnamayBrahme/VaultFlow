@@ -44,7 +44,8 @@ spec:
 
       containers:
         - name: {{ .Chart.Name }}
-          # Phase 8: Container-level Security Context
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: DB_HOST
               value: {{ .Values.postgresql.host | quote }}
@@ -62,8 +63,6 @@ spec:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port | default 5000 }}

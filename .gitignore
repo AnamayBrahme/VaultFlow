@@ -5,5 +5,7 @@
 __pycache__/
 *.pyc
 .env
+venv/
+app/venv/
 .DS_Store
 charts/*/charts/
