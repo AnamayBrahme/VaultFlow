@@ -172,3 +172,10 @@ persistence:
 
 storage:
   size: 1Gi
+
+postgresql:
+  host: "vaultflow-db-team-b.vaultflow-team-b.svc.cluster.local"
+  port: "5432"
+  database: "vaultflow"
+  username: "postgres"
+  password: "password"
