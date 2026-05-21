@@ -1,0 +1,31 @@
+# ── 1. DEFAULT DENY ALL INCOMING TRAFFIC ───────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: vaultflow-team-a
+spec:
+  podSelector: {} 
+  policyTypes:
+  - Ingress       
+---
+# ── 2. API INGRESS POLICY (Allow Ingress Controller Traffic) ───────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-allow-ingress
+  namespace: vaultflow-team-a
+spec:
+  podSelector:
+    matchLabels: 
+      app.kubernetes.io/instance: vaultflow-api-team-a
+      app.kubernetes.io/name: vaultflow-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    # 🟢 ALLOW ALL NETWORKS ONLY ON TARGET APP PORT
+    # This accommodates the Docker node bridge pathing layout used by kind on macOS
+    ports:
+    - protocol: TCP
+      port: 5000

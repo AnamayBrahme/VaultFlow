@@ -1,0 +1,26 @@
+# ── 3. DB INGRESS POLICY (Enforced in Team-B Space) ─────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow-team-a-api-only
+  namespace: vaultflow-team-b
+spec:
+  podSelector:
+    # 🟢 FIXED: Now matches the exact Helm labels on your vaultflow-db-team-b-0 pod!
+    matchLabels:
+      app.kubernetes.io/instance: vaultflow-db-team-b
+      app.kubernetes.io/name: vaultflow-db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: vaultflow-team-a
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: vaultflow-api-team-a
+          app.kubernetes.io/name: vaultflow-api
+    ports:
+    - protocol: TCP
+      port: 5432

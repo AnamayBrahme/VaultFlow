@@ -9,8 +9,14 @@ build:
       docker:
         dockerfile: Dockerfile
   local:
-    push: false # Crucial for Docker Desktop: tells it not to try pushing to Docker Hub
+    push: false 
+
 manifests:
+  hooks:
+    before:
+      - host:
+          command: ["sh", "-c", "kubectl create secret tls vaultflow-tls-secret --cert=vaultflow.crt --key=vaultflow.key --namespace=vaultflow-team-a --dry-run=client -o yaml | kubectl apply -f -"]
+  
   helm:
     releases:
       - name: vaultflow-api-team-a
@@ -20,3 +26,14 @@ manifests:
           image.repository: "{{.IMAGE_REPO}}"
           image.tag: "{{.IMAGE_TAG}}"
           image.pullPolicy: "IfNotPresent"
+
+deploy:
+  kubectl: {}
+
+# ── 🔒 LOCKED PORT FORWARDING ────────────────────────────────────────
+portForward:
+  - resourceType: service
+    resourceName: ingress-nginx-controller
+    namespace: ingress-nginx
+    port: 443
+    localPort: 8443 # Anchors your proxy to 8443 forever
