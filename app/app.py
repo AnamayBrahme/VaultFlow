@@ -2,36 +2,19 @@ import os
 import time
 from flask import Flask, request, jsonify, render_template
 from prometheus_flask_exporter import PrometheusMetrics
-import psycopg2
+
+# Import our shared database layer and blueprints
+from database import get_db_connection
+from routes.ui import ui_bp
+from routes.admin import admin_bp
 
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
-
-# ── Database Connection Helper ──────────────────────────────────────────
-def get_db_connection():
-    """Reads environment variables injected by Helm to open a Postgres connection."""
-    retries = 3
-    while retries > 0:
-        try:
-            conn = psycopg2.connect(
-                host=os.environ.get('DB_HOST', 'localhost'),
-                database=os.environ.get('DB_NAME', 'vaulflow'),
-                user=os.environ.get('DB_USER', 'postgres'),
-                password=os.environ.get('DB_PASSWORD', 'password'),
-                port=os.environ.get('DB_PORT', '5432')
-            )
-            return conn
-        except psycopg2.OperationalError as e:
-            print(f"Database connection failed. Retrying in 2 seconds... ({retries} left)")
-            retries -= 1
-            time.sleep(2)
-    raise Exception("Could not connect to the database. Verify network routing or secret credentials.")
 
 # ── Health ────────────────────────────────────────────────────────────────
 @app.route("/health")
 def health():
     try:
-        # Verify the database is actually reachable during health checks
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute('SELECT 1;')
@@ -58,7 +41,7 @@ def create_secret():
             """,
             (data["key"], data["value"])
         )
-        conn.commit() # ◄ THIS SAYS: Write this permanently to disk!
+        conn.commit()
         cur.close()
         conn.close()
         return jsonify({"message": "secret stored", "key": data["key"]}), 201
@@ -70,36 +53,23 @@ def list_secrets():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        
-        # 1. Fetch all structural columns from the database table
         cur.execute("SELECT id, secret_key, secret_value, created_at FROM secrets;")
         rows = cur.fetchall()
         
-        # 2. Map row tuples into structured dictionary objects matching your UI layout
         secrets_list = []
         for row in rows:
             secrets_list.append({
                 "id": row[0],
                 "secret_key": row[1],
                 "secret_value": row[2],
-                # Format timestamps into clean text blocks if your API outputs them
                 "created_at": row[3].strftime("%Y-%m-%d %H:%M:%S") if row[3] else None
             })
             
         cur.close()
         conn.close()
-        
-        # 3. Return the fully populated objects list along with the calculated count
-        return jsonify({
-            "secrets": secrets_list, 
-            "count": len(secrets_list)
-        }), 200
-        
+        return jsonify({"secrets": secrets_list, "count": len(secrets_list)}), 200
     except Exception as e:
-        return jsonify({
-            "error": "Database read error", 
-            "detail": str(e)
-        }), 500
+        return jsonify({"error": "Database read error", "detail": str(e)}), 500
 
 @app.route("/secrets/<key>", methods=["DELETE"])
 def delete_secret(key):
@@ -114,7 +84,7 @@ def delete_secret(key):
             return jsonify({"error": "key not found"}), 404
             
         cur.execute("DELETE FROM secrets WHERE secret_key = %s;", (key,))
-        conn.commit() # ◄ ALSO NEEDED HERE: Save the deletion permanently!
+        conn.commit()
         cur.close()
         conn.close()
         return jsonify({"message": "secret deleted", "key": key}), 200
@@ -137,6 +107,10 @@ def dashboard_ui():
         print(f"UI Fetch Error: {e}")
 
     return render_template("index.html", rows=rows)
+
+# ── Register Blueprints ───────────────────────────────────────────────────
+app.register_blueprint(ui_bp, url_prefix='/ui')
+app.register_blueprint(admin_bp, url_prefix='/admin') # Hooks up your dashboard route to /admin
 
 # ── Run ───────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

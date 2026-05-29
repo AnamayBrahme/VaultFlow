@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow-api
+  namespace: vaultflow-team-b # Applied where the database lives
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vaultflow-db # Targets your database pod
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: vaultflow-team-a # Allows traffic coming from the API namespace
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: vaultflow-api # Specifically allows only your backend API pods
+    ports:
+    - protocol: TCP
+      port: 5432 # Opens exactly the PostgreSQL port and nothing else

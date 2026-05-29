@@ -28,7 +28,7 @@ manifests:
           image.pullPolicy: "IfNotPresent"
 
 deploy:
-  kubectl: {}
+  helm: {}
 
 # ── 🔒 LOCKED PORT FORWARDING ────────────────────────────────────────
 portForward:

@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-default-deny
+  namespace: vaultflow-team-b
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress: [] # ◄ THIS forces a total network blackout for EVERYONE, no exceptions

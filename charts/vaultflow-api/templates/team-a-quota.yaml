@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: team-a-compute-quota
+  namespace: vaultflow-team-a
+spec:
+  hard:
+    pods: "12"                  # Increased headroom for rolling updates
+    requests.cpu: "2"           # Bumped to 2 Cores to allow old + new pods simultaneously
+    requests.memory: "2Gi"      # Bumped to 2GB
+    limits.cpu: "4"            
+    limits.memory: "4Gi"
