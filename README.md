@@ -113,35 +113,61 @@ skaffold dev
 
 Starts the hot-reloading development cycle with live image builds and manifest sync.
 
-### Production Cluster Installation (Helm)
+## 🗂️ Namespace Layout
 
-```bash
-# 1. Create namespaces
-kubectl create namespace vaultflow-system
-kubectl create namespace vaultflow-admin
-kubectl create namespace vaultflow-team-a
-kubectl create namespace vaultflow-team-b
+The platform is split across **4 namespaces**, each with a distinct responsibility and isolation boundary.
 
-# 2. Apply PSA restricted labels to team namespaces
-kubectl label namespace vaultflow-team-a pod-security.kubernetes.io/enforce=restricted
-kubectl label namespace vaultflow-team-b pod-security.kubernetes.io/enforce=restricted
+### `vaultflow-system`
+The core platform namespace. Hosts all shared infrastructure components used by both tenant teams.
 
-# 3. Deploy core platform (DB + Observability)
-helm install vaultflow-db    ./charts/vaultflow-db            -n vaultflow-system
-helm install vaultflow-obs   ./charts/vaultflow-observability -n vaultflow-system
+| Component | Type | Purpose |
+|---|---|---|
+| `vaultflow-db` | StatefulSet | PostgreSQL database — stores configs and secrets for all teams |
+| `vaultflow-ui` (system) | Deployment | Central dashboard entry point |
+| NGINX Ingress Controller | DaemonSet / Deployment | Single TLS entry point, routes `/ui`, `/api`, `/admin` |
+| Prometheus | Deployment | Scrapes `/metrics` from all API pods across namespaces |
+| Grafana | Deployment | Visualises pod health, SLA, and workload metrics |
 
-# 4. Deploy Team A
-helm install vaultflow-api-a ./charts/vaultflow-api -n vaultflow-team-a -f values/team-a.yaml
-helm install vaultflow-ui-a  ./charts/vaultflow-ui  -n vaultflow-team-a -f values/team-a.yaml
+### `vaultflow-admin`
+Admin-only namespace. Hosts the platform engineering control panel with elevated cluster access.
 
-# 5. Deploy Team B
-helm install vaultflow-api-b ./charts/vaultflow-api -n vaultflow-team-b -f values/team-b.yaml
-helm install vaultflow-ui-b  ./charts/vaultflow-ui  -n vaultflow-team-b -f values/team-b.yaml
+| Component | Type | Purpose |
+|---|---|---|
+| `vaultflow-admin` | Deployment | Admin panel with cluster-wide oversight |
+| Admin `ClusterRole` + `ClusterRoleBinding` | RBAC | Full cluster-level read/write for platform engineers |
+| PSA | `restricted` enforce | Prevents any privileged workload even in the admin plane |
 
-# 6. Deploy Admin panel
-helm install vaultflow-admin ./charts/vaultflow-admin -n vaultflow-admin
-```
+### `vaultflow-team-a`
+Fully isolated tenant namespace for Team A. Zero access to Team B resources or cluster-wide paths.
 
+| Component | Type | Purpose |
+|---|---|---|
+| `vaultflow-api` | Deployment (N replicas) | Flask REST API — `/secrets`, `/health`, `/metrics` |
+| `vaultflow-ui` | Deployment | Team A dashboard frontend |
+| `Role` + `RoleBinding` | RBAC | Scoped read/write on ConfigMaps and Secrets in this namespace only |
+| `ServiceAccount` | RBAC | Dedicated identity for the API pod |
+| `NetworkPolicy` | Security | UI → API only; API → DB only; all else denied |
+| `PodDisruptionBudget` | Resilience | `minAvailable` driven from values — protects API during node drain |
+| `ResourceQuota` | Governance | Hard CPU, memory, pod, and secret limits |
+| PSA label | Security | `pod-security.kubernetes.io/enforce=restricted` |
+| `PersistentVolumeClaim` | Storage | Config history storage mounted into API pods |
+
+### `vaultflow-team-b`
+Mirror of Team A — fully isolated tenant namespace for Team B with identical components and the same hard security boundaries.
+
+| Component | Type | Purpose |
+|---|---|---|
+| `vaultflow-api` | Deployment (N replicas) | Flask REST API — same endpoints as Team A, isolated data |
+| `vaultflow-ui` | Deployment | Team B dashboard frontend |
+| `Role` + `RoleBinding` | RBAC | Scoped to `vaultflow-team-b` only |
+| `ServiceAccount` | RBAC | Dedicated identity separate from Team A |
+| `NetworkPolicy` | Security | Identical ingress/egress rules, bound to Team B labels |
+| `PodDisruptionBudget` | Resilience | Independent PDB — Team A drain events do not affect Team B |
+| `ResourceQuota` | Governance | Independent hard limits — Team A quota exhaustion does not affect Team B |
+| PSA label | Security | `pod-security.kubernetes.io/enforce=restricted` |
+| `PersistentVolumeClaim` | Storage | Separate PVC — no shared storage with Team A |
+
+---
 ### Environment Promotion
 
 ```bash
