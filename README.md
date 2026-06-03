@@ -294,29 +294,6 @@ kubectl uncordon desktop-worker
 
 ***
 
-## 🔑 Production Secret Strategy — Sealed Secrets
-
-To keep the entire platform declarable in Git (GitOps workflows) without exposing plaintext credentials, VaultFlow documents [Bitnami Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) as the production secret management approach.
-
-```
-[Plaintext Secret]
-        +
-[kubeseal + Cluster Public Key]
-        │
-        ▼
-[SealedSecret .yaml]  ──►  Push to Git  ──►  Deploy to Cluster
-                                                      │
-                                                      ▼
-                              [Sealed Secrets Controller decrypts]
-                                                      │
-                                                      ▼
-                                          [Native Kubernetes Secret]
-```
-
-For external secret stores (HashiCorp Vault, AWS Secrets Manager), the [External Secrets Operator](https://external-secrets.io/) provides an equivalent GitOps-compatible integration path.
-
-***
-
 ## 📊 Multi-Environment Values
 
 | Setting | `dev` | `staging` | `prod` |
