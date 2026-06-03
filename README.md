@@ -5,7 +5,6 @@
   <img src="https://img.shields.io/badge/Helm-v3-0F1626?style=for-the-badge&logo=helm&logoColor=white" alt="Helm">
   <img src="https://img.shields.io/badge/Skaffold-v2-243447?style=for-the-badge&logo=skaffold&logoColor=white" alt="Skaffold">
   <img src="https://img.shields.io/badge/Security-PSA%20%26%20NetPol-success?style=for-the-badge" alt="Security Verified">
-  <img src="https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white" alt="CI/CD">
 </p>
 
 ***
@@ -349,4 +348,3 @@ kubectl uncordon desktop-worker
 | PodDisruptionBudget | API pods protected during node drain with `minAvailable` from values |
 | Helm Charts | Every resource templated, versioned, multi-env value files |
 | Prometheus + Grafana | Deployed via Helm, scraping `/metrics`, dashboards for pod health |
-| GitHub Actions CI | `helm lint` + `helm template` on every push and PR |
