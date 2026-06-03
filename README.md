@@ -317,33 +317,6 @@ For external secret stores (HashiCorp Vault, AWS Secrets Manager), the [External
 
 ***
 
-## ⚙️ CI Pipeline — GitHub Actions
-
-Every push and pull request runs:
-
-```yaml
-# .github/workflows/helm-ci.yml
-name: Helm CI
-on: [push, pull_request]
-jobs:
-  lint-and-template:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: azure/setup-helm@v3
-      - name: Lint all charts
-        run: |
-          helm lint ./charts/vaultflow-api
-          helm lint ./charts/vaultflow-ui
-          helm lint ./charts/vaultflow-db
-      - name: Render team-a templates
-        run: helm template vaultflow ./charts/vaultflow-api -f values/team-a.yaml
-      - name: Render prod templates
-        run: helm template vaultflow ./charts/vaultflow-api -f values/prod.yaml
-```
-
-***
-
 ## 📊 Multi-Environment Values
 
 | Setting | `dev` | `staging` | `prod` |
