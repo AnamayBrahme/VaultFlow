@@ -26,14 +26,28 @@ manifests:
           image.repository: "{{.IMAGE_REPO}}"
           image.tag: "{{.IMAGE_TAG}}"
           image.pullPolicy: "IfNotPresent"
+      - name: vaultflow-obs
+        chartPath: charts/vaultflow-observability
+        namespace: vaultflow-team-a
+        skipBuildDependencies: true
 
 deploy:
   helm: {}
 
-# ── 🔒 LOCKED PORT FORWARDING ────────────────────────────────────────
+# ── 🔒 LOCK-SYNCHRONIZED PORT FORWARDING ─────────────────────────────
 portForward:
   - resourceType: service
     resourceName: ingress-nginx-controller
     namespace: ingress-nginx
     port: 443
-    localPort: 8443 # Anchors your proxy to 8443 forever
+    localPort: 8443                                # 👈 Restored to standard 8443 local port
+  - resourceType: service
+    resourceName: vaultflow-prometheus-svc         # 👈 Matched back to your active service
+    namespace: vaultflow-team-a
+    port: 9090                                     # 👈 Fixed internal port back to 9090
+    localPort: 9090
+  - resourceType: service
+    resourceName: vaultflow-grafana-svc            # 👈 Matched back to your active service
+    namespace: vaultflow-team-a
+    port: 3000                                     # 👈 Fixed internal port back to 3000
+    localPort: 3000

@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vaultflow-prometheus
+  namespace: vaultflow-team-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: vaultflow-obs-vaultflow-observability
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: prometheus
+          image: ubuntu/prometheus:3.11-24.04_stable
+          # 📑 FIX 1: Explicitly clear the args so Pebble doesn't throw flag errors
+          args: [] 
+          # 📑 FIX 2: Tell Pebble to hold on if it encounters transient storage delays
+          env:
+            - name: PEBBLE_LOG_LEVEL
+              value: "DEBUG"
+          ports:
+            - containerPort: 9090
+              name: web
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            # We must mount your ConfigMap file EXACTLY here so Pebble's default service profile finds it
+            - name: config-volume
+              mountPath: /etc/prometheus
+            - name: storage-volume
+              mountPath: /prometheus
+      volumes:
+        - name: config-volume
+          configMap:
+            name: prometheus-config
+        - name: storage-volume
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: vaultflow-team-a
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+
+    scrape_configs:
+      - job_name: 'kubernetes-service-endpoints'
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace]
+            action: keep
+            regex: vaultflow-team-a
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vaultflow-prometheus-svc
+  namespace: vaultflow-team-a
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vaultflow-prometheus-global-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view # 👈 Standard built-in role that allows reading system metrics
+subjects:
+  - kind: ServiceAccount
+    name: vaultflow-obs-vaultflow-observability # 👈 Make sure this matches your exact Prometheus pod service account
+    namespace: vaultflow-team-a

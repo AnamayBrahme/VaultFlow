@@ -7,9 +7,11 @@ from prometheus_flask_exporter import PrometheusMetrics
 from database import get_db_connection
 from routes.ui import ui_bp
 from routes.admin import admin_bp
+from metrics import init_metrics
 
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
+init_metrics(app)
 
 # ── Health ────────────────────────────────────────────────────────────────
 @app.route("/health")

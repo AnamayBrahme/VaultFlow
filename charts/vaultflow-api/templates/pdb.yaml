@@ -1,0 +1,11 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: vaultflow-api-pdb
+  namespace: vaultflow-team-a
+spec:
+  # Ensures that at least 1 replica is ALWAYS running during voluntary disruptions
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: vaultflow-api  # 👈 This must match the matchLabels in your API deployment
