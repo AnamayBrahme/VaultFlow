@@ -1,0 +1,146 @@
+# Workflow name shown in the GitHub Actions UI
+name: vaultflow-ci
+
+# Defines WHEN this workflow runs
+on:
+  # Run on pull requests targeting main — this validates code BEFORE it merges
+  pull_request:
+    branches: [main]
+    # Only trigger if these specific paths changed — avoids wasting CI minutes
+    # on unrelated file changes (e.g. editing README.md won't trigger this)
+    paths:
+      - "app/**"                     # Flask/Python app source code
+      - "charts/**"                  # Helm charts for all VaultFlow components
+      - "values/**"                  # Team-specific Helm values (team-a, team-b)
+      - "skaffold.yaml"              # Local dev / build orchestration config
+      - ".github/workflows/**"       # Changes to the workflow itself must be validated too
+
+  # Run on direct pushes to main (e.g. after a PR is merged)
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "charts/**"
+      - "values/**"
+      - "skaffold.yaml"
+      - ".github/workflows/**"
+
+# SECURITY: sets the default GITHUB_TOKEN permission to read-only.
+# This token is auto-generated per run. Least privilege means this workflow
+# can only read repo contents — it cannot push code, create releases,
+# write packages, etc. unless a specific job explicitly requests more.
+permissions:
+  contents: read
+
+# Prevents wasted runs: if multiple commits are pushed quickly to the same
+# branch/PR, older in-progress runs for that same ref get cancelled
+# automatically instead of piling up and consuming runner minutes.
+concurrency:
+  group: vaultflow-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Jobs run in parallel by default (unless you add "needs:") — here app-checks
+# and k8s-checks run at the same time, which speeds up feedback
+jobs:
+
+  # ============================================================
+  # JOB 1: Validates the Python application code in /app
+  # ============================================================
+  app-checks:
+    name: App checks
+    runs-on: ubuntu-latest   # fresh GitHub-hosted Linux VM for this job
+
+    steps:
+      # Pulls your repo code onto the runner so subsequent steps can access it
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Installs Python 3.12 on the runner, and caches pip dependencies
+      # keyed off requirements.txt so future runs install faster
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: app/requirements.txt
+
+      # Installs the app's actual dependencies plus pytest (used for testing)
+      - name: Install dependencies
+        working-directory: app
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      # Quick sanity check: does every .py file at least compile without
+      # syntax errors? This catches broken code before running real tests
+      - name: Python syntax check
+        working-directory: app
+        run: |
+          python -m compileall .
+
+      # Runs pytest ONLY if test files actually exist. This avoids failing
+      # CI just because no tests have been written yet — useful for an
+      # early-stage project like VaultFlow. Remove this conditional once
+      # you have a real test suite and want tests to be mandatory.
+      - name: Run tests if present
+        working-directory: app
+        run: |
+          if find . -type f \( -name "test_*.py" -o -name "*_test.py" \) | grep -q .; then
+            pytest -q
+          else
+            echo "No pytest tests found, skipping."
+          fi
+
+  # ============================================================
+  # JOB 2: Validates Kubernetes/Helm configuration for every chart
+  # ============================================================
+  k8s-checks:
+    name: Helm and manifest checks
+    runs-on: ubuntu-latest
+
+    # Matrix strategy: runs this job ONCE PER CHART, in parallel.
+    # If vaultflow-db has a broken chart, you immediately see which chart
+    # failed instead of one big combined log for all charts.
+    strategy:
+      fail-fast: false   # let all charts finish checking even if one fails,
+                          # so you see every broken chart in a single run
+      matrix:
+        chart:
+          - vaultflow-api
+          - vaultflow-db
+          - vaultflow-ui
+          - vaultflow-observability
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Installs the helm CLI on the runner so we can lint/render charts
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      # helm lint checks the chart for syntax errors, missing required
+      # values, bad indentation, etc. — catches obvious chart mistakes
+      - name: Helm lint
+        run: |
+          helm lint charts/${{ matrix.chart }}
+
+      # Renders the chart's final Kubernetes manifests using BOTH team
+      # value files (team-a.yaml, team-b.yaml). This proves the chart
+      # actually produces valid, non-empty output for every team config —
+      # not just that the template syntax is valid in isolation.
+      - name: Render chart with team values
+        run: |
+          mkdir -p rendered
+          for values_file in values/team-a.yaml values/team-b.yaml; do
+            output_file="rendered/${{ matrix.chart }}-$(basename "${values_file}" .yaml).yaml"
+            helm template ${{ matrix.chart }} charts/${{ matrix.chart }} -f "${values_file}" > "${output_file}"
+            test -s "${output_file}"   # fails if the rendered file is empty
+          done
+
+      # Confirms skaffold.yaml still exists in the repo — a cheap guard so
+      # local dev workflows (skaffold dev) don't silently break
+      - name: Check skaffold file exists
+        run: |
+          test -f skaffold.yaml
