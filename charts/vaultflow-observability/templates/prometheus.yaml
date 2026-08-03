@@ -104,3 +104,18 @@ subjects:
   - kind: ServiceAccount
     name: vaultflow-obs-vaultflow-observability # 👈 Make sure this matches your exact Prometheus pod service account
     namespace: vaultflow-team-a
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vaultflow-api-monitor
+  labels:
+    release: prometheus # This label must match your Prometheus instance label
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vaultflow-api # This matches your API pod labels
+  endpoints:
+  - port: http-metrics # Ensure your Service for the API has this port named
+    path: /metrics
+    interval: 30s
