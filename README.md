@@ -348,3 +348,98 @@ kubectl uncordon desktop-worker
 | PodDisruptionBudget | API pods protected during node drain with `minAvailable` from values |
 | Helm Charts | Every resource templated, versioned, multi-env value files |
 | Prometheus + Grafana | Deployed via Helm, scraping `/metrics`, dashboards for pod health |
+
+
+
+## Quickstart
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [Helm](https://helm.sh/docs/intro/install/)
+- [Skaffold](https://skaffold.dev/docs/install/) v2.x (uses `skaffold/v4beta11` config)
+- OpenSSL (for local TLS cert generation)
+
+> **Current scope:** this Skaffold pipeline deploys `vaultflow-api` and
+> `vaultflow-observability` into the `vaultflow-team-a` namespace only.
+> `vaultflow-db`, `vaultflow-ui`, and the `team-b` environment are not
+> yet wired into this pipeline and must be deployed manually (see below).
+
+### 1. Create a local cluster
+
+\```bash
+kind create cluster --name vaultflow
+kubectl cluster-info --context kind-vaultflow
+\```
+
+### 2. Install the NGINX ingress controller
+
+\```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=120s
+\```
+
+### 3. Create the target namespace
+
+\```bash
+kubectl create namespace vaultflow-team-a
+\```
+
+### 4. Generate a local TLS cert/key pair
+
+Skaffold's pre-deploy hook creates a TLS secret from `vaultflow.crt` and
+`vaultflow.key`. These are **not committed to the repo** — generate your
+own local pair before running Skaffold:
+
+\```bash
+openssl req -x509 -newkey rsa:2048 \
+  -keyout vaultflow.key -out vaultflow.crt \
+  -days 365 -nodes -subj "/CN=vaultflow.local"
+\```
+
+### 5. Deploy with Skaffold
+
+\```bash
+skaffold dev
+\```
+
+This builds the `vaultflow-api` image locally, applies the TLS secret,
+and installs the `vaultflow-api-team-a` and `vaultflow-obs` Helm releases
+into `vaultflow-team-a`.
+
+### 6. Access the app and dashboards
+
+Skaffold forwards these ports automatically while `skaffold dev` is running:
+
+| Service | Local URL |
+|---|---|
+| VaultFlow app (via ingress) | https://localhost:8443 |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
+
+### 7. Verify
+
+\```bash
+kubectl get pods -n vaultflow-team-a
+kubectl get pods -n ingress-nginx
+\```
+
+### Deploying vaultflow-db, vaultflow-ui, or team-b (manual, not yet in Skaffold)
+
+\```bash
+helm upgrade --install vaultflow-db charts/vaultflow-db \
+  -f values/team-a.yaml --namespace vaultflow-team-a
+
+helm upgrade --install vaultflow-ui charts/vaultflow-ui \
+  -f values/team-a.yaml --namespace vaultflow-team-a
+
+# Team B environment
+kubectl create namespace vaultflow-team-b
+helm upgrade --install vaultflow-api charts/vaultflow-api \
+  -f values/team-b.yaml --namespace vaultflow-team-b
+\```
