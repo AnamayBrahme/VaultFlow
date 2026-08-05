@@ -71,8 +71,8 @@ flowchart TD
 
 ```
 vaultflow/
-├── Chart.yaml                          # Umbrella chart
-├── values.yaml                         # Global defaults
+├── Chart.yaml                          
+├── values.yaml                         
 ├── values/
 │   ├── dev.yaml                        # PSA warn, 1 replica, low limits
 │   ├── staging.yaml                    # PSA enforce, 2 replicas, PDB enabled
